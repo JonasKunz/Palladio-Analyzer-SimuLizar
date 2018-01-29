@@ -36,7 +36,7 @@ public class InterpreterDefaultContext extends Context {
 
 	private PCMResourceSetPartition localPCMModelCopy;
 	
-	private Stack<FailureStackFrame> failureStack;
+	private Stack<FailureStackFrame<?>> failureStack;
 
     public InterpreterDefaultContext(final AbstractSimuLizarRuntimeState simulizarModel) {
         super(simulizarModel.getModel());
@@ -102,11 +102,11 @@ public class InterpreterDefaultContext extends Context {
     	return this.localPCMModelCopy;
     }
     
-    public void raiseFailure(FailureStackFrame failure) {
+    public void raiseFailure(FailureStackFrame<?> failure) {
     	failureStack.push(failure);
     }
     
-    public Optional<FailureStackFrame> peekFailure() {
+    public Optional<FailureStackFrame<?>> peekFailure() {
     	if(failureStack.isEmpty()) {
     		return Optional.empty();
     	} else {
@@ -114,7 +114,7 @@ public class InterpreterDefaultContext extends Context {
     	}
     }
     
-    public Optional<FailureStackFrame> popFailure() {
+    public Optional<FailureStackFrame<?>> popFailure() {
     	if(failureStack.isEmpty()) {
     		return Optional.empty();
     	} else {
