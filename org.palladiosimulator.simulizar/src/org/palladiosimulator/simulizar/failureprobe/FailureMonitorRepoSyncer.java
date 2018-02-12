@@ -71,17 +71,13 @@ public class FailureMonitorRepoSyncer extends AbstractModelObserver<MonitorRepos
 			.buildExecutionResultCalculator(mp, 
 					new EventProbeList(
 							execOverTime,
-                            new FailureProbe(mp.getUsageScenario(), runtimeState.getEventNotificationHelper(),
-        							runtimeState.getMainContext(), runtimeState.getModel().getFailureStatistics()),
+                            new FailureProbe(mp.getUsageScenario(), runtimeState.getEventDispatcher(), runtimeState.getModel().getFailureStatistics()),
                             Arrays.asList(
                                     (TriggeredProbe) new TakeCurrentSimulationTimeProbe(runtimeState.getModel().getSimulationControl())
                                     )
                             )
                     );		
 		});
-		//TODO: Probes erzeugen
-		//recorder:
-		//siehe AbstractMain.prepareSimulation
 		
 	}
 	
