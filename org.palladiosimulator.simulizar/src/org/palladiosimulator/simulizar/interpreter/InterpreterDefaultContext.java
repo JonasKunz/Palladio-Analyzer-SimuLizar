@@ -8,6 +8,7 @@ import org.palladiosimulator.analyzer.workflow.blackboard.PCMResourceSetPartitio
 import org.palladiosimulator.pcm.core.composition.AssemblyContext;
 import org.palladiosimulator.pcm.reliability.FailureType;
 import org.palladiosimulator.simulizar.access.IModelAccess;
+import org.palladiosimulator.simulizar.reliability.FailureStackFrame;
 import org.palladiosimulator.simulizar.runtimestate.AbstractSimuLizarRuntimeState;
 
 import de.uka.ipd.sdq.simucomframework.Context;

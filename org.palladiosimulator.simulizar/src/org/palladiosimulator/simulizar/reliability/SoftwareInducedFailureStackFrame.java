@@ -1,8 +1,7 @@
-package org.palladiosimulator.simulizar.interpreter;
+package org.palladiosimulator.simulizar.reliability;
 
 import org.palladiosimulator.pcm.reliability.SoftwareInducedFailureType;
 import org.palladiosimulator.pcm.seff.AbstractAction;
-import org.palladiosimulator.pcm.seff.InternalAction;
 import org.palladiosimulator.reliability.FailureStatistics;
 import org.palladiosimulator.reliability.MarkovFailureType;
 

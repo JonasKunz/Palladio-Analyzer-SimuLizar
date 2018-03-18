@@ -86,6 +86,10 @@ import org.palladiosimulator.simulizar.exceptions.SimulatedStackAccessException;
 import org.palladiosimulator.simulizar.interpreter.listener.EventType;
 import org.palladiosimulator.simulizar.interpreter.listener.FailureOccurredEvent;
 import org.palladiosimulator.simulizar.interpreter.listener.RDSEFFElementPassedEvent;
+import org.palladiosimulator.simulizar.modelobserver.AbstractResourceEnvironmentObserver;
+import org.palladiosimulator.simulizar.reliability.HardwareFailureStackFrame;
+import org.palladiosimulator.simulizar.reliability.NetworkFailureStackFrame;
+import org.palladiosimulator.simulizar.reliability.SoftwareInducedFailureStackFrame;
 import org.palladiosimulator.simulizar.runtimestate.SimulatedBasicComponentInstance;
 import org.palladiosimulator.simulizar.utils.SimulatedStackHelper;
 import org.palladiosimulator.simulizar.utils.TransitionDeterminer;
@@ -94,6 +98,7 @@ import de.uka.ipd.sdq.simucomframework.ResourceRegistry;
 import de.uka.ipd.sdq.simucomframework.exceptions.FailureException;
 import de.uka.ipd.sdq.simucomframework.fork.ForkExecutor;
 import de.uka.ipd.sdq.simucomframework.fork.ForkedBehaviourProcess;
+import de.uka.ipd.sdq.simucomframework.resources.AbstractSimulatedResourceContainer;
 import de.uka.ipd.sdq.simucomframework.variables.StackContext;
 import de.uka.ipd.sdq.simucomframework.variables.converter.NumberConverter;
 import de.uka.ipd.sdq.simucomframework.variables.stackframe.SimulatedStackframe;
@@ -157,6 +162,8 @@ class RDSeffSwitch extends SeffSwitch<Object> implements IComposableSwitch {
      */
     @Override
     public Object caseResourceDemandingBehaviour(final ResourceDemandingBehaviour object) {
+    	
+    	
         final int stacksize = this.context.getStack().size();
 
         AbstractAction currentAction = null;
@@ -172,21 +179,54 @@ class RDSeffSwitch extends SeffSwitch<Object> implements IComposableSwitch {
         if (currentAction == null) {
             throw new PCMModelInterpreterException("RDSEFF is invalid, it misses a start action");
         }
+        
 
-        while (currentAction.eClass() != SeffPackage.eINSTANCE.getStopAction()) {
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Interpret " + currentAction.eClass().getName() + ": " + currentAction);
+    	if (context.getModel().getConfiguration().getSimulateFailures()) {
+			// Simulate a failure if one or multiple of the processing resources
+			// required by the executing resource container are currently unavailable:
+			//AbstractSimulatedResourceContainer container = context.findResource(this.completeAssemblyContextID);
+
+            final AllocationContext allocationContext = this.getAllocationContext(this.allocation);
+            
+            final ResourceRegistry resourceRegistry = this.context.getModel().getResourceRegistry();
+
+            AbstractSimulatedResourceContainer container =
+            resourceRegistry.getResourceContainer(allocationContext.getResourceContainer_AllocationContext().getId());
+            
+           
+			java.util.List<de.uka.ipd.sdq.simucomframework.resources.AbstractScheduledResource> failedResources = container.getFailedResources();
+			if(failedResources.size() > 0){
+				double randValue = context.getModel().getConfiguration().getRandomGenerator().random();
+				int index = (int)Math.floor(randValue * failedResources.size());
+				
+				//TODO: cleanup here
+				try {
+					de.uka.ipd.sdq.simucomframework.exceptions.FailureException.raise(
+							context.getModel(),context.getModel().getFailureStatistics().getInternalHardwareFailureType(
+									container.getResourceContainerID(),
+									failedResources.get(index).getResourceTypeId()));					
+				} catch(FailureException e) {
+	        		translateAndRaiseFailure(currentAction, e);					
+				}
+			}
+		}
+    	
+    	if(!context.hasFailureOccurred()) {
+            while (currentAction.eClass() != SeffPackage.eINSTANCE.getStopAction()) {
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("Interpret " + currentAction.eClass().getName() + ": " + currentAction);
+                }
+                this.firePassedEvent(currentAction, EventType.BEGIN);
+                this.getParentSwitch().doSwitch(currentAction);
+                this.firePassedEvent(currentAction, EventType.END);
+                if(context.hasFailureOccurred()) {     	
+                    LOGGER.debug("Failure Occurred! Leaving behaviour "+ object.getId());  
+                    break;
+                } else {
+                    currentAction = currentAction.getSuccessor_AbstractAction();            	
+                }
             }
-            this.firePassedEvent(currentAction, EventType.BEGIN);
-            this.getParentSwitch().doSwitch(currentAction);
-            this.firePassedEvent(currentAction, EventType.END);
-            if(context.hasFailureOccurred()) {     	
-                LOGGER.debug("Failure Occurred! Leaving behaviour "+ object.getId());  
-                break;
-            } else {
-                currentAction = currentAction.getSuccessor_AbstractAction();            	
-            }
-        }
+    	}
 
         if (this.context.getStack().size() != stacksize) {
             throw new PCMModelInterpreterException("Interpreter did not pop all pushed stackframes");
@@ -291,7 +331,14 @@ class RDSeffSwitch extends SeffSwitch<Object> implements IComposableSwitch {
                     externalCall.getInputVariableUsages__CallAction());
         }
         final AssemblyContext myContext = this.context.getAssemblyContextStack().pop();
-        //TODO: evaluate network failures here
+        
+        //TODO: As soon as ResourceDemands are implemented, the following failure handling logic has to be performed:
+        // Use translatreAndRaisMarkovFailure to translate occuring FailureExceptions
+       
+        // if the exception type is in  externalCall.getFailureTypes_FailureHandlingEntity() and retries are possible, perform a retry
+        // decrement the retry counter in this case
+        
+        
         final SimulatedStackframe<Object> outputFrame = composedStructureSwitch.doSwitch(myContext);
         this.context.getAssemblyContextStack().push(myContext);
         this.context.getStack().removeStackFrame();
@@ -481,7 +528,7 @@ class RDSeffSwitch extends SeffSwitch<Object> implements IComposableSwitch {
     /**
      * Translates the given FailureException into a FailureStackFrame and puts it onto the failure stack
      */
-	private void translateAndRaiseFailure(final InternalAction currentAction, FailureException ex) {
+	private void translateAndRaiseFailure(final AbstractAction currentAction, FailureException ex) {
 		
 		//TODO: Add a cache as these lookups are expensive
 		
@@ -551,8 +598,11 @@ class RDSeffSwitch extends SeffSwitch<Object> implements IComposableSwitch {
 					}
 				}
 			}
-			
-			
+			NetworkFailureStackFrame nwfailure = new NetworkFailureStackFrame(failureType, link, currentAction);
+			context.raiseFailure(nwfailure); 
+			context.getRuntimeState().getEventDispatcher().fireEvent(
+					new FailureOccurredEvent<EObject, FailureType>(currentAction, nwfailure, context.getThread())
+			);
 		} else {
 			throw new RuntimeException("Encountered unhandled Failure Type", ex);
 		}

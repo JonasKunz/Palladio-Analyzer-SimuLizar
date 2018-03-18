@@ -1,12 +1,8 @@
-package org.palladiosimulator.simulizar.interpreter;
+package org.palladiosimulator.simulizar.reliability;
 
-import org.palladiosimulator.pcm.reliability.HardwareInducedFailureType;
 import org.palladiosimulator.pcm.reliability.NetworkInducedFailureType;
-import org.palladiosimulator.pcm.reliability.SoftwareInducedFailureType;
 import org.palladiosimulator.pcm.resourceenvironment.LinkingResource;
-import org.palladiosimulator.pcm.resourceenvironment.ResourceContainer;
 import org.palladiosimulator.pcm.seff.AbstractAction;
-import org.palladiosimulator.pcm.seff.InternalAction;
 import org.palladiosimulator.reliability.FailureStatistics;
 import org.palladiosimulator.reliability.MarkovFailureType;
 
@@ -31,9 +27,8 @@ public class NetworkFailureStackFrame extends FailureStackFrame<NetworkInducedFa
 
 	@Override
 	public MarkovFailureType translateToMarkovFailureType(FailureStatistics stats) {
-		//TODO: Was sind die übrigen parameter?
 		this.type.getCommunicationLinkResourceType__NetworkInducedFailureType();
-		return null; // stats.getExternalNetworkFailureType(commLinkResourceTypeId, systemRequiredRoleId, signatureId);
+		return stats.getInternalNetworkFailureType(link.getId(), type.getCommunicationLinkResourceType__NetworkInducedFailureType().getId());
 	}
 	
 	

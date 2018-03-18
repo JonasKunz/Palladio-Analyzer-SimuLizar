@@ -1,28 +1,26 @@
-package org.palladiosimulator.simulizar.failureprobe;
+package org.palladiosimulator.simulizar.reliability;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Optional;
 
 import org.eclipse.emf.common.util.EList;
+import org.eclipse.emf.common.util.URI;
+import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.util.EcoreUtil;
-import org.palladiosimulator.metricspec.BaseMetricDescription;
-import org.palladiosimulator.metricspec.MetricDescription;
+import org.palladiosimulator.edp2.models.measuringpoint.MeasuringPoint;
 import org.palladiosimulator.metricspec.MetricSetDescription;
 import org.palladiosimulator.metricspec.constants.MetricDescriptionConstants;
 import org.palladiosimulator.metricspec.util.builder.MetricSetDescriptionBuilder;
-import org.palladiosimulator.monitorrepository.Aggregation;
 import org.palladiosimulator.monitorrepository.MeasurementSpecification;
 import org.palladiosimulator.monitorrepository.Monitor;
 import org.palladiosimulator.monitorrepository.MonitorRepository;
-import org.palladiosimulator.pcmmeasuringpoint.PcmmeasuringpointPackage;
-import org.palladiosimulator.pcmmeasuringpoint.UsageScenarioMeasuringPoint;
 import org.palladiosimulator.probeframework.probes.EventProbeList;
 import org.palladiosimulator.probeframework.probes.TriggeredProbe;
 import org.palladiosimulator.reliability.FailureStatistics;
 import org.palladiosimulator.simulizar.modelobserver.AbstractModelObserver;
 import org.palladiosimulator.simulizar.runtimestate.AbstractSimuLizarRuntimeState;
 
+import de.uka.ipd.sdq.identifier.Identifier;
 import de.uka.ipd.sdq.simucomframework.probes.TakeCurrentSimulationTimeProbe;
 
 public class FailureMonitorRepoSyncer extends AbstractModelObserver<MonitorRepository>{
@@ -60,23 +58,29 @@ public class FailureMonitorRepoSyncer extends AbstractModelObserver<MonitorRepos
 			System.out.println(actual.getName());
 		});*/
 		monitors.stream()
-		.filter(m -> PcmmeasuringpointPackage.eINSTANCE.getUsageScenarioMeasuringPoint().isInstance(m.getMeasuringPoint()))
 		.filter(m -> m.getMeasurementSpecifications().stream()
 					.map(MeasurementSpecification::getMetricDescription)
 					.filter( d -> MetricDescriptionConstants.EXECUTION_RESULT_OVER_TIME_METRIC.getId().equals(d.getId()))
 					.findAny().isPresent())
 		.forEach(m -> {
-			UsageScenarioMeasuringPoint mp = (UsageScenarioMeasuringPoint) m.getMeasuringPoint();
-			runtimeState.getModel().getProbeFrameworkContext().getCalculatorFactory()
-			.buildExecutionResultCalculator(mp, 
-					new EventProbeList(
-							execOverTime,
-                            new FailureProbe(mp.getUsageScenario(), runtimeState.getEventDispatcher(), runtimeState.getModel().getFailureStatistics()),
-                            Arrays.asList(
-                                    (TriggeredProbe) new TakeCurrentSimulationTimeProbe(runtimeState.getModel().getSimulationControl())
-                                    )
-                            )
-                    );		
+			MeasuringPoint mp = m.getMeasuringPoint();
+			
+			URI targetURI = URI.createURI(mp.getResourceURIRepresentation());	
+			String fragment = targetURI.fragment();
+			final EObject target = runtimeState.getModelAccess().getLocalPCMModel().loadModel(targetURI).getEObject(fragment);
+			if(target instanceof Identifier) {
+				//mp.getResourceURIRepresentation()
+				runtimeState.getModel().getProbeFrameworkContext().getCalculatorFactory()
+				.buildExecutionResultCalculator(mp, 
+						new EventProbeList(
+								execOverTime,
+	                            new FailureProbe((Identifier)target, runtimeState.getEventDispatcher(), runtimeState.getModel().getFailureStatistics()),
+	                            Arrays.asList(
+	                                    (TriggeredProbe) new TakeCurrentSimulationTimeProbe(runtimeState.getModel().getSimulationControl())
+	                                    )
+	                            )
+	                    );
+			}		
 		});
 		
 	}
